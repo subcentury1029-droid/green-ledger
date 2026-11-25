@@ -1,0 +1,21 @@
+{
+  "name": "小绿账本",
+  "short_name": "小绿账本",
+  "description": "我的专属生活费管理助手",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#eaf4ed",
+  "theme_color": "#286247",
+  "lang": "zh-CN",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
