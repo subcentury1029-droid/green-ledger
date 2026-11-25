@@ -6,6 +6,19 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>小绿账本</title>
+ <link rel="manifest" href="./manifest.json">
+<link rel="icon" href="./icon.svg">
+<meta name="theme-color" content="#286247">
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", function () {
+    navigator.serviceWorker.register("./sw.js")
+      .catch(function (error) {
+        console.error(error);
+      });
+  });
+}
+</script>
 <style>
 *{box-sizing:border-box}
 body{margin:0;background:#eaf4ed;color:#28543e;font-family:system-ui,sans-serif}
