@@ -1,4 +1,340 @@
-<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>小绿账本</title><style>
-*{box-sizing:border-box}body{margin:0;background:#edf5ee;color:#244b39;font:15px system-ui,sans-serif}main{max-width:650px;margin:auto;padding:20px}h1{font-size:26px;margin:10px 0 4px}h2{font-size:17px;margin:0 0 15px}p{line-height:1.6}.muted,small{color:#637d6e}.card{background:white;border:1px solid #dce9de;border-radius:22px;padding:20px;margin:15px 0;box-shadow:0 5px 20px #244b3908}.hero{background:#285e45;color:white}.hero small{color:#d2e9d9}.big{font-size:40px;font-weight:750;margin:8px 0}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.tile{background:#f0f7f1;padding:13px;border-radius:14px}.tile strong{display:block;font-size:23px;margin-top:6px}label{display:block;margin:12px 0 5px}input,select,button{font:inherit;border-radius:12px;padding:12px;border:1px solid #cbded0;width:100%;min-width:0}button{background:#387b57;color:white;border:0;cursor:pointer;font-weight:600;margin-top:10px}button.secondary{background:#e8f3e9;color:#285e45}button.danger{background:#faece8;color:#9a4236}progress{width:100%;height:10px;accent-color:#a9d5a9} .line{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 0;border-bottom:1px solid #edf2ed}.line button{width:auto;padding:7px 10px;margin:0}.bar{height:9px;background:#e8f1e8;border-radius:9px;overflow:hidden;margin:5px 0 12px}.bar i{display:block;height:100%;background:#79b58b}.warn{color:#a34d25}.hero .warn{color:#ffdbac}footer{text-align:center;color:#637d6e;font-size:12px;padding:15px}canvas{width:100%;height:160px}details summary{cursor:pointer;font-weight:bold} </style><main><h1>🌿 小绿账本</h1><small>把钱留给真正喜欢的东西</small><section class="card hero"><small>剩余生活费</small><div class="big" id="balance"></div><progress id="progress" max="100"></progress><p id="period"></p><div id="warning"></div></section><section class="grid"><div class="tile">今日剩余建议<strong id="daily"></strong></div><div class="tile">累计消费<strong id="spent"></strong></div><div class="tile">外卖消费<strong id="takeout"></strong><small id="count"></small></div><div class="tile">连续无外卖打卡<strong id="streak"></strong></div></section><section class="card"><h2>＋ 记一笔</h2><form id="entry"><div class="grid"><div><label for="amount">金额（元）</label><input id="amount" type="number" min="0.01" step="0.01" required placeholder="0.00"></div><div><label for="date">日期</label><input id="date" type="date" required></div></div><label for="category">消费分类</label><select id="category"></select><p id="tempt" class="warn" hidden>这顿外卖真的非点不可吗？先看看食堂吧！</p><label for="note">备注</label><input id="note" maxlength="100" placeholder="例如：食堂午餐"><button id="save">记录消费</button><button type="button" class="secondary" id="cancel" hidden>取消修改</button></form></section><section class="card"><h2>今日省钱打卡</h2><p id="checktext"></p><button id="check" class="secondary"></button></section><section class="card"><h2>消费分析</h2><div id="analysis"></div><h2>最近7天消费趋势</h2><canvas id="chart" aria-label="最近七天消费柱状图"></canvas></section><section class="card"><h2>消费账单</h2><div id="records"></div><button id="export" class="secondary">导出全部账单 CSV</button><button id="backup" class="secondary">备份数据 JSON</button><label>恢复备份</label><input id="restore" type="file" accept=".json,application/json"></section><section class="card"><details><summary>预算设置</summary><form id="settings"><label>预算金额（元）</label><input id="budget" type="number" min="1" step="0.01" required><label>预算开始日期</label><input id="start" type="date" required><label>下次生活费到账日期</label><input id="end" type="date" required><button>保存预算设置</button><small>更改预算周期不会删除历史账单。</small></form></details></section><footer id="storage">数据仅保存在当前浏览器，请定期备份。</footer></main><script>
-const $=id=>document.getElementById(id),cats=['食堂','外卖','奶茶零食','日用品','交通','学习','娱乐','购物','其他'],key='green-ledger-v1';const day=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`,today=()=>day(new Date()),shift=(s,n)=>{let d=new Date(s+'T12:00:00');d.setDate(d.getDate()+n);return day(d)},diff=(a,b)=>Math.round((Date.parse(a)-Date.parse(b))/86400000),money=n=>'¥'+(n/100).toFixed(2);let state={budget:100000,start:'2026-11-26',end:'2026-12-12',entries:[],checks:[]},edit=null;try{let raw=localStorage.getItem(key);if(raw)state=JSON.parse(raw)}catch(e){$('storage').textContent='无法读取本地存储，请使用备份功能。'}function persist(){try{localStorage.setItem(key,JSON.stringify(state))}catch(e){$('storage').textContent='本地保存失败！请立即导出备份。'}render()}
-for(let c of cats){let o=document.createElement('option');o.textContent=c;$('category').append(o)}$('date').value=today();function sync(){ $('budget').value=state.budget/100;$('start').value=state.start;$('end').value=state.end}sync();const sum=a=>a.reduce((s,e)=>s+e.amount,0);function render(){let t=today(),a=state.entries.filter(e=>e.date>=state.start&&e.date<state.end),spent=sum(a),left=state.budget-spent,days=
+
+ 
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>小绿账本</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#eaf4ed;color:#28543e;font-family:system-ui,sans-serif}
+main{max-width:600px;margin:auto;padding:18px}
+h1{margin-bottom:4px}
+h2{font-size:18px}
+p{line-height:1.6}
+.card{background:white;border-radius:20px;padding:18px;margin:14px 0;box-shadow:0 3px 12px #234d3210}
+.hero{background:#286247;color:white}
+.big{font-size:38px;font-weight:bold;margin:12px 0}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stat{background:#f4faf5;padding:14px;border-radius:14px}
+.stat b{display:block;font-size:21px;margin-top:8px}
+input,button{font:inherit;border-radius:12px;padding:12px;width:100%}
+input{border:1px solid #cdded2;background:white;color:#28543e;margin:6px 0 12px}
+button{border:0;background:#397d58;color:white;cursor:pointer;margin:4px 0}
+.cats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.cats button{background:#eaf4ed;color:#28543e;font-size:14px}
+.cats button.active{background:#397d58;color:white}
+label{font-size:14px}
+small{opacity:.8}
+progress{width:100%;accent-color:#a9d9ae}
+.bar{height:9px;background:#e3efe6;border-radius:8px;overflow:hidden;margin:6px 0 12px}
+.fill{height:100%;background:#72ad83}
+.bill{border-bottom:1px solid #e1eee5;padding:12px 0}
+.actions{display:flex;gap:8px}
+.actions button{font-size:13px}
+.danger{color:#bc4949}
+#status{color:#bc4949}
+</style>
+</head>
+<body>
+<main>
+<h1>🌿 小绿账本</h1>
+<small>把钱留给真正喜欢的东西</small>
+<div id="status"></div>
+<div class="card hero">
+<div>剩余生活费</div>
+<div class="big" id="balance">¥1000.00</div>
+<progress id="progress" value="0" max="100"></progress>
+<p id="period"></p>
+</div>
+<div class="grid">
+<div class="stat">今日剩余建议<b id="daily">¥62.50</b></div>
+<div class="stat">累计消费<b id="spent">¥0.00</b></div>
+<div class="stat">外卖消费<b id="takeout">¥0.00</b></div>
+<div class="stat">无外卖打卡<b id="streak">0天</b></div>
+</div>
+<section class="card">
+<h2>＋ 记一笔</h2>
+<div class="grid">
+<div><label>金额（元）</label>
+<input id="amount" type="number" min="0.01" step="0.01" placeholder="0.00"></div>
+<div><label>日期</label>
+<input id="date" type="date"></div>
+</div>
+<label>消费分类</label>
+<div class="cats" id="cats">
+<button type="button" class="active">食堂</button>
+<button type="button">外卖</button>
+<button type="button">奶茶零食</button>
+<button type="button">日用品</button>
+<button type="button">交通</button>
+<button type="button">学习</button>
+<button type="button">娱乐</button>
+<button type="button">购物</button>
+<button type="button">其他</button>
+</div>
+<p id="warning"></p>
+<label>备注</label>
+<input id="note" placeholder="例如：食堂午餐">
+<button id="add">记录消费</button>
+</section>
+<section class="card">
+<h2>🌱 今日省钱打卡</h2>
+<p id="checkInfo">今天也要抵制外卖诱惑！</p>
+<button id="check">今日无外卖打卡</button>
+</section>
+<section class="card">
+<h2>消费分类统计</h2>
+<div id="stats">暂无消费</div>
+</section>
+<section class="card">
+<h2>最近7天消费趋势</h2>
+<div id="trend"></div>
+</section>
+<section class="card">
+<h2>消费账单</h2>
+<div id="bills">暂无记录</div>
+</section>
+<section class="card">
+<h2>预算设置</h2>
+<label>总预算（元）</label>
+<input id="budget" type="number" value="1000" min="1">
+<label>预算开始日期</label>
+<input id="start" type="date" value="2026-11-26">
+<label>下次生活费到账日期</label>
+<input id="end" type="date" value="2026-12-12">
+<button id="settings">保存预算设置</button>
+<button id="export">导出CSV账单</button>
+<button id="backup">备份全部数据</button>
+<label>恢复备份</label>
+<input id="restore" type="file" accept=".json">
+</section>
+<p style="text-align:center"><small>认真生活，慢慢攒钱 🌿</small></p>
+</main>
+<script>
+(function(){
+"use strict";
+var $=function(id){return document.getElementById(id)};
+var key="greenLedgerFixed";
+var data={budget:1000,start:"2026-11-26",end:"2026-12-12",entries:[],checks:[]};
+var category="食堂";
+var editing=null;
+function error(e){
+$("status").textContent="运行提示："+(e.message||e);
+}
+window.addEventListener("error",function(e){error(e.message)});
+try{
+var old=localStorage.getItem(key);
+if(old){data=JSON.parse(old)}
+}catch(e){error("无法读取本地数据")}
+function save(){
+try{localStorage.setItem(key,JSON.stringify(data))}
+catch(e){error("自动保存失败，请及时备份")}
+}
+function dateStr(d){
+return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+}
+function today(){return dateStr(new Date())}
+function shift(s,n){
+var d=new Date(s+"T12:00:00");
+d.setDate(d.getDate()+n);
+return dateStr(d);
+}
+function days(a,b){
+return Math.round((Date.parse(b)-Date.parse(a))/86400000);
+}
+function money(n){return "¥"+Number(n).toFixed(2)}
+function sum(arr){
+return arr.reduce(function(s,e){return s+Number(e.amount)},0);
+}
+function activeEntries(){
+return data.entries.filter(function(e){
+return e.date>=data.start&&e.date<data.end;
+});
+}
+function selectCat(c){
+category=c;
+document.querySelectorAll("#cats button").forEach(function(b){
+b.classList.toggle("active",b.textContent===c);
+});
+$("warning").textContent=c==="外卖"?"这顿外卖真的有必要吗？想想你的生活费！":"";
+}
+document.querySelectorAll("#cats button").forEach(function(b){
+b.onclick=function(){selectCat(b.textContent)};
+});
+function bar(parent,label,value,max){
+var t=document.createElement("div");
+t.textContent=label+"　"+money(value);
+var b=document.createElement("div");
+b.className="bar";
+var f=document.createElement("div");
+f.className="fill";
+f.style.width=(max>0?Math.min(100,value/max*100):0)+"%";
+b.appendChild(f);
+parent.appendChild(t);
+parent.appendChild(b);
+}
+function render(){
+var entries=activeEntries();
+var spent=sum(entries);
+var left=data.budget-spent;
+var now=today();
+var first=now<data.start?data.start:now;
+var remain=Math.max(0,days(first,data.end));
+var todaySpent=sum(entries.filter(function(e){return e.date===now}));
+var delivery=entries.filter(function(e){return e.category==="外卖"});
+$("balance").textContent=money(left);
+$("spent").textContent=money(spent);
+$("daily").textContent=money(remain?Math.max(0,(left+todaySpent)/remain-todaySpent):0);
+$("takeout").textContent=money(sum(delivery))+" / "+delivery.length+"次";
+$("progress").value=Math.max(0,Math.min(100,spent/data.budget*100));
+$("period").textContent=data.start+" 至 "+shift(data.end,-1)+" · 剩余"+remain+"天";
+$("balance").style.color=left<0?"#ffb3b3":"white";
+var count=0;
+var d=now;
+if(data.checks.indexOf(d)<0)d=shift(d,-1);
+while(data.checks.indexOf(d)>=0&&!data.entries.some(function(e){return e.date===d&&e.category==="外卖"})){
+count++;
+d=shift(d,-1);
+}
+$("streak").textContent=count+"天";
+var hasDelivery=data.entries.some(function(e){return e.date===now&&e.category==="外卖"});
+var checked=data.checks.indexOf(now)>=0&&!hasDelivery;
+$("check").disabled=hasDelivery||checked;
+$("checkInfo").textContent=hasDelivery?"今天已有外卖记录，明天继续努力。":checked?"今天已打卡，继续保持！":"今天也要抵制外卖诱惑！";
+$("stats").textContent="";
+var groups={};
+entries.forEach(function(e){groups[e.category]=(groups[e.category]||0)+Number(e.amount)});
+Object.keys(groups).forEach(function(c){bar($("stats"),c,groups[c],spent)});
+if(!entries.length)$("stats").textContent="暂无消费";
+$("trend").textContent="";
+var week=[];
+for(var i=6;i>=0;i--){
+var day=shift(now,-i);
+week.push({day:day,total:sum(data.entries.filter(function(e){return e.date===day}))});
+}
+var max=Math.max.apply(null,week.map(function(e){return e.total}));
+week.forEach(function(e){bar($("trend"),e.day.slice(5),e.total,max)});
+$("bills").textContent="";
+var list=data.entries.slice().sort(function(a,b){return b.date.localeCompare(a.date)||b.id-a.id});
+if(!list.length)$("bills").textContent="暂无记录";
+list.forEach(function(e){
+var box=document.createElement("div");
+box.className="bill";
+var title=document.createElement("b");
+title.textContent=e.category+"　-"+money(e.amount);
+var desc=document.createElement("p");
+desc.textContent=e.date+" · "+(e.note||"无备注");
+var actions=document.createElement("div");
+actions.className="actions";
+var edit=document.createElement("button");
+edit.textContent="修改";
+edit.onclick=function(){
+editing=e.id;
+$("amount").value=e.amount;
+$("date").value=e.date;
+$("note").value=e.note;
+selectCat(e.category);
+$("add").textContent="保存修改";
+$("amount").scrollIntoView({block:"center"});
+};
+var del=document.createElement("button");
+del.textContent="删除";
+del.onclick=function(){
+if(confirm("确定删除这笔消费？")){
+data.entries=data.entries.filter(function(x){return x.id!==e.id});
+save();render();
+}
+};
+actions.appendChild(edit);
+actions.appendChild(del);
+box.appendChild(title);
+box.appendChild(desc);
+box.appendChild(actions);
+$("bills").appendChild(box);
+});
+}
+$("add").onclick=function(){
+var amount=Number($("amount").value);
+var date=$("date").value;
+if(!Number.isFinite(amount)||amount<=0||!date){alert("请输入有效金额和日期");return}
+if(date>today()){alert("不能记录未来的消费");return}
+if(category==="外卖"&&!confirm("确定记录这笔外卖消费？"))return;
+var entry={id:editing===null?Date.now():editing,amount:Math.round(amount*100)/100,date:date,category:category,note:$("note").value};
+if(editing!==null){
+data.entries=data.entries.filter(function(e){return e.id!==editing});
+}
+data.entries.push(entry);
+if(category==="外卖"){
+data.checks=data.checks.filter(function(d){return d!==date});
+}
+editing=null;
+$("amount").value="";
+$("note").value="";
+$("add").textContent="记录消费";
+save();render();
+if(sum(activeEntries())>data.budget)alert("注意：生活费已经超出预算！");
+};
+$("check").onclick=function(){
+if(data.entries.some(function(e){return e.date===today()&&e.category==="外卖"}))return;
+if(data.checks.indexOf(today())<0)data.checks.push(today());
+save();render();
+};
+$("settings").onclick=function(){
+var b=Number($("budget").value);
+var s=$("start").value;
+var e=$("end").value;
+if(!Number.isFinite(b)||b<=0||!s||!e||e<=s){alert("请检查预算和日期");return}
+data.budget=b;data.start=s;data.end=e;
+save();render();alert("预算设置已保存");
+};
+function download(name,content,type){
+var url=URL.createObjectURL(new Blob([content],{type:type}));
+var a=document.createElement("a");
+a.href=url;a.download=name;
+document.body.appendChild(a);a.click();a.remove();
+setTimeout(function(){URL.revokeObjectURL(url)},1000);
+}
+$("export").onclick=function(){
+var rows=[["日期","分类","金额","备注"]];
+data.entries.forEach(function(e){rows.push([e.date,e.category,e.amount,e.note])});
+var csv=rows.map(function(r){
+return r.map(function(v){
+var s=String(v);
+if(/^[=+@\-\t\r]/.test(s))s="'"+s;
+return '"'+s.replace(/"/g,'""')+'"';
+}).join(",");
+}).join("\r\n");
+download("小绿账本.csv","\uFEFF"+csv,"text/csv;charset=utf-8");
+};
+$("backup").onclick=function(){
+download("小绿账本备份.json",JSON.stringify(data,null,2),"application/json");
+};
+function sync(){
+$("budget").value=data.budget;
+$("start").value=data.start;
+$("end").value=data.end;
+$("date").value=today();
+}
+$("restore").onchange=function(){
+var file=this.files[0];
+if(!file)return;
+var reader=new FileReader();
+reader.onload=function(){
+try{
+var obj=JSON.parse(reader.result);
+if(!obj||!Number.isFinite(obj.budget)||obj.budget<=0||!Array.isArray(obj.entries)||!Array.isArray(obj.checks)||!/^\d{4}-\d{2}-\d{2}$/.test(obj.start)||!/^\d{4}-\d{2}-\d{2}$/.test(obj.end)||obj.end<=obj.start||!obj.entries.every(function(e){return e&&Number.isFinite(e.amount)&&e.amount>0&&typeof e.date==="string"&&typeof e.category==="string"})||!obj.checks.every(function(d){return typeof d==="string"}))throw Error("无效备份");
+if(confirm("恢复备份将覆盖当前账单，是否继续？")){
+data=obj;editing=null;save();sync();render();
+}
+}catch(e){alert("备份恢复失败："+e.message)}
+};
+reader.readAsText(file);
+};
+sync();
+render();
+})();
+</script>
+</body>
+</html>
